@@ -1,0 +1,404 @@
+	(1). Explain how your standard (Part A) msort() works briefly. 
+	
+- The standard msort() is essentially an implementation of the pseudocode provided by the professor during the class lecture. The core algorithm follows the classic Merge Sort technique, where the 
+- array is recursively divided into smaller segments and then merged in sorted order(i.e Divide and conquer approach).
+- However, some important edge cases were handled to ensure robustness: During the merging phase, if rightPtr (which points to elements in the right half) reaches beyond the bounds of the base array 
+- while leftPtr still has elements remaining, the loop terminates, and the remaining elements from the left half are directly copied into the temporary output array. Similarly, if leftPtr completes 
+- while rightPtr still has elements left, the remaining right half elements are directly copied to the output array. Finally, the result stored in the temporary output array is copied back to the base 
+- array.
+	(2). Explain your optimizations for part B.
+
+- As the professor mentioned in the campuswire, the dataset is expected to be of the following type:
+	- (a) Half of the dataset is almost sorted(i.e. worst-case of when the list is fully sorted and the next-to-worse case of when it has a single inversion).
+	- (b) A very high propportion of the dataset is the short array.
+		
+- So, in order to tailor to the above dataset, the following approaches were followed in the optimization:
+	- Case (a): To handle the almost sorted case efficiently, I implemented a function called check_sorted_status() that determines whether the array is fully sorted, has a single inversion, or is 
+	- completely unsorted. This function operates in linear time i.e O(n) ).For example, when check_sorted_status() detects a single inversion, it swaps the elements and checks the array once more. 		- If the array becomes sorted, we avoid further sorting operations. if not, we proceed to the next step.
+	
+	- Case (b): For smaller arrays (determined by the threshold of 29, as detailed in (3) below), the insertion_sort function is used. This is because insertion sort performs better on small 
+	- datasets compared to un-optimized merge sort due to its low overhead and efficient handling of short lists.
+	
+- An additional optimization was applied during the merge phase of the unoptimized merge sort. For example, if leftPtr completes before rightPtr, the remaining elements from the right half are not
+- copied into the temporary array, as they are already in the correct position in the original array. This reduces unnecessary data movement and improves efficiency.
+	
+	(3). (Optional) provide evidence for your selected threshold (between long and shortlists) leading to optimal performance (extra credit of 1%). 
+	
+- The threshold selection was based on multiple trials comparing the performance of insertion sort and the unoptimized merge sort across various array lengths. From the results, insertion sort
+- consistently outperformed merge sort for arrays of length less than 29.
+			Array Length  Average Unoptimized Merge Sort Time(sec)      Average Insertion Sort Time(sec)
+				0	        0.000000086					0.000000079
+				1               0.000000093					0.000000082
+				2               0.000000173					0.000000117
+				3               0.000000297					0.000000178
+				4               0.000000396					0.000000260
+				5               0.000000581					0.000000436
+				.		 .						.
+				.		 .						.
+				.		 .						.
+				
+				27 		0.000002379					0.000002654
+				28 		0.000002012					0.000002001
+				29 		0.000002468					0.000002927
+				30		0.000002221					0.000002300
+				31		0.000002714					0.000003327
+				32		0.000002351					0.000002527
+				33		0.000002967					0.000003732
+				34		0.000002623					0.000002841
+				35		0.000003185					0.000004101
+				36		0.000002894					0.000003210
+				37		0.000003442					0.000004539
+
+
+	(4). Performance test	
+	
+- In order to test the optimized merge sort, I have created a random 100 batches of syntetic dataset imitating the expected dataset. Each batch contains 1000 arrays of which 80% is of size between 
+- (2~64) and 500 of them satisfy almost sorted condition. As we can see from the following sample tests, optimized merged sort is performing better than the un-optimized merge sort.
+	- x@Bee:~/Desktop/2024_Fall/Data Structure and Algorithm(EE205)/Assignments/Projects/Project 1-MergeSort_src/src$ ./test_opt 
+		Overall Results: 
+		Total Optimized Merge Sort Time: 0.108412373 seconds
+		Total Unoptimized Merge Sort Time: 0.123453858 seconds
+		Total Insertion Sort Time: 14.184427835 seconds
+		Results written to batch_results.csv
+	- x@Bee:~/Desktop/2024_Fall/Data Structure and Algorithm(EE205)/Assignments/Projects/Project 1-MergeSort_src/src$ ./test_opt 
+		Overall Results: 
+		Total Optimized Merge Sort Time: 0.105663643 seconds
+		Total Unoptimized Merge Sort Time: 0.124197349 seconds
+		Total Insertion Sort Time: 12.412969796 seconds
+		Results written to batch_results.csv
+	- x@Bee:~/Desktop/2024_Fall/Data Structure and Algorithm(EE205)/Assignments/Projects/Project 1-MergeSort_src/src$ ./test_opt 
+		Overall Results: 
+		Total Optimized Merge Sort Time: 0.118088649 seconds
+		Total Unoptimized Merge Sort Time: 0.134245766 seconds
+		Total Insertion Sort Time: 15.816902113 seconds
+		Results written to batch_results.csv
+		
+	(5). APPENDIX.
+- Source code of test_opt.c:
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include "msort_opt.h"
+#define BATCHES 10         // Number of batches
+#define TRIALS 1000          // Number of arrays per batch
+#define LARGE_ARRAY_MIN 10000 // Minimum length for large arrays
+#define SMALL_ARRAY_MAX 64    // Maximum length for small arrays
+#define MAX_INPUT 1000000     // Maximum input size to allocate memory
+void* tempArray;
+/*-----------------------------------------------------------------------*/
+static int 
+IntIncreasingOrder(const void *A, const void *B)
+{
+    const int a = *(int *)A, b = *(int *)B;
+    return (a > b) ? 1 : ((a < b) ? -1 : 0);
+}
+
+/*-----------------------------------------------------------------------*/
+void msortHelper(void* base, size_t nmemb, size_t size, int (*compar)(const void *, const void *),void* tempArray);
+void msort_UNOPT(void* base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)){
+    tempArray = malloc(nmemb * size); // Temporary array to hold merge result
+    msortHelper(base,nmemb,size,compar,tempArray);
+    free(tempArray);
+
+}
+void msortHelper(void* base, size_t nmemb, size_t size, int (*compar)(const void *, const void *),void* tempArray)
+{
+    if (nmemb <= 1) return; // Base case
+    char copiedFlag=0;
+    char* leftArray,*rightArray,*leftPtr,*rightPtr,*out;
+    size_t i=0,j=0,l=0;
+    size_t mid = nmemb/2;
+    
+    msortHelper(base, mid, size, compar,tempArray); // sort first half
+    msortHelper((char*)base + mid * size, nmemb - mid, size, compar,tempArray); // sort second half
+    leftArray = (char*)base;
+    rightArray = (char*)base + mid * size;
+
+    // Pointers for iteration
+    leftPtr = leftArray;
+    rightPtr = rightArray;
+
+    out = (char*)tempArray;
+    for (size_t k = 0; k < nmemb; ++k) {
+        if (leftPtr == rightArray) { 
+            //memcpy(out, rightPtr, (nmemb - mid - j) * size);
+            memcpy(base, tempArray, (mid+j) * size); // The remaining righ half is at the right place,so just copy the temp array to base array
+            copiedFlag=1;
+            break;
+        }
+        if (rightPtr == leftArray + nmemb * size) { 
+            //memcpy(out, leftPtr, (mid - i) * size);
+            memcpy((char*)base+l*size, leftPtr, (mid - i) * size); //To copy remaining elements from the left Array to the base array
+            memcpy(base, tempArray, (l) * size); // copying what is in tempArray to base array
+            copiedFlag=1;
+            break;
+        }
+        // Compare and merge elements
+        int comp = compar((void*)leftPtr, (void*)rightPtr);
+        if (comp <= 0) {
+            memcpy(out, leftPtr, size);
+            leftPtr += size;
+            i++;
+        } 
+        else {
+            memcpy(out, rightPtr, size);
+            rightPtr += size;
+            j++;
+        }
+        out += size;
+        l++;
+    }
+    if(!copiedFlag) memcpy(base, tempArray, nmemb * size);  // Copy the merged result back to the original array
+}
+void insertion_sortt(void* base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)){
+    void* temp = malloc(size); // Temporary storage for the current element
+    size_t i, j;
+    void* prev_ptr;
+    // Traverse the array starting from the second element
+    for (i = 1; i < nmemb; i++) {
+        memcpy(temp, (char*)base + i * size, size); // Copy the current element into temp storage
+        j = i;
+        prev_ptr = (char*)base + (j - 1) * size;
+        
+        // Shift elements to the right until the correct position for temp is found
+        while (j > 0 && compar(prev_ptr, temp) > 0) {
+            memcpy((char*)base + j * size, prev_ptr, size);
+            j--;
+            if (j > 0) {
+                prev_ptr = (char*)base + (j - 1) * size; 
+            }
+        }
+        memcpy((char*)base + j * size, temp, size); // Place temp in its correct position
+    }
+    free(temp);   
+}
+static int 
+IntDecreasingOrder(const void *A, const void *B)
+{
+    const int a = *(int *)A, b = *(int *)B;
+    return (a < b) ? 1 : ((a > b) ? -1 : 0);    
+}
+
+/* Function to make the array either fully sorted or with a single inversion */
+void make_almost_sorted(int* A, int* B, int* C, int* D, size_t nmemb) {
+    // Handle the case where the array is empty
+    if (nmemb == 0) {
+        return; // Nothing to do if there are no elements
+    }
+
+    // Generate a sorted array directly
+    for (size_t i = 0; i < nmemb; ++i) {
+        A[i] = B[i] = C[i] = D[i] = (int)i;
+    }
+
+    // Simulate a coin flip to decide between fully sorted or single inversion
+    int coin_flip = rand() % 2; // Generate either 0 or 1 randomly
+
+    if (coin_flip == 0 && nmemb > 1) {
+        // Introduce a single inversion
+        size_t inversion_index = rand() % (nmemb - 1); // Choose a random index to create the inversion
+        
+        // Swap elements at inversion_index and inversion_index + 1 in all arrays
+        int temp = A[inversion_index];
+        A[inversion_index] = A[inversion_index + 1];
+        A[inversion_index + 1] = temp;
+
+        B[inversion_index] = A[inversion_index];
+        B[inversion_index + 1] = A[inversion_index + 1];
+
+        C[inversion_index] = A[inversion_index];
+        C[inversion_index + 1] = A[inversion_index + 1];
+
+        D[inversion_index] = A[inversion_index];
+        D[inversion_index + 1] = A[inversion_index + 1];
+    }
+    // If coin_flip == 1, the array remains fully sorted, so no additional changes are needed.
+}
+
+/*-----------------------------------------------------------------------*/
+void generate_random_array(int* A, int* B, int* C, int* D, size_t nmemb) {
+    for (size_t i = 0; i < nmemb; i++) {
+        A[i] = B[i] = C[i] = D[i] = rand() % 1000000; // Random numbers between 0 and 999999
+    }
+}
+
+/*-----------------------------------------------------------------------*/
+int main(void)
+{
+    srand((unsigned int)time(NULL)); // Seed the random number generator
+    int (*fun_ptr)(const void *, const void *);
+    int *inputA, *inputB, *inputC, *inputD;
+    size_t count;
+    struct timespec begin, end;
+    
+    double total_msort_time = 0, total_msort_unopt_time = 0, total_insertion_time = 0;
+
+    // Open CSV file for writing results
+    FILE *fp = fopen("batch_results.csv", "w");
+    // if (fp == NULL) {
+    //     fprintf(stderr, "Failed to open file for writing\n");
+    //     return -1;
+    // }
+
+    // Write CSV header
+    fprintf(fp, "Batch Number,Optimized Merge Sort Time (s),Unoptimized Merge Sort Time (s),Insertion Sort Time (s),Faster Algorithm\n");
+
+    inputA = malloc(sizeof(int) * MAX_INPUT);
+    inputB = malloc(sizeof(int) * MAX_INPUT);
+    inputC = malloc(sizeof(int) * MAX_INPUT);
+    inputD = malloc(sizeof(int) * MAX_INPUT);
+
+
+    // Loop over multiple batches
+    for (int batch = 1; batch <= BATCHES; batch++) {
+        double batch_msort_time = 0, batch_msort_unopt_time = 0, batch_insertion_time = 0;
+
+        // 80% Small Arrays
+        for (int trial = 0; trial < TRIALS * 0.8; trial++) {
+            // Generate random size between 2 and 64
+            count = (rand() % (64 - 2 + 1)) + 2;
+            fun_ptr = (count % 2 == 0) ? IntIncreasingOrder : IntDecreasingOrder;
+            // Make half of them almost sorted
+            if (trial % 2 == 0) make_almost_sorted(inputA, inputB, inputC, inputD, count);
+            else generate_random_array(inputA, inputB, inputC, inputD, count);
+            // printf("input: ");
+            // for (size_t j = 0; j < count; j++) {
+            //     printf("%d ", inputA[j]);
+            // // }
+            // printf("\n");
+            qsort(inputB, count, sizeof(int), fun_ptr);
+            // Time optimized merge sort
+            clock_gettime(CLOCK_MONOTONIC, &begin);
+            msort(inputA, count, sizeof(int), fun_ptr);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            batch_msort_time += (end.tv_sec - begin.tv_sec) + (end.tv_nsec - begin.tv_nsec) / 1e9;
+            // Time unoptimized merge sort
+            clock_gettime(CLOCK_MONOTONIC, &begin);
+            msort_UNOPT(inputC, count, sizeof(int), fun_ptr);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            batch_msort_unopt_time += (end.tv_sec - begin.tv_sec) + (end.tv_nsec - begin.tv_nsec) / 1e9;
+
+            // Time insertion sort
+            clock_gettime(CLOCK_MONOTONIC, &begin);
+            insertion_sortt(inputD, count, sizeof(int), fun_ptr);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+
+            // Validating
+            for (size_t i = 0; i < count; i++) {
+                if (inputA[i] != inputB[i] || inputC[i] != inputB[i] || inputD[i] != inputB[i]) {
+                    printf("Test failed at index %zu\n", i);
+                    printf("inputA: ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputA[j]);
+                    }
+                    printf("\n");
+
+                    printf("inputB (reference, sorted using qsort): ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputB[j]);
+                    }
+                    printf("\n");
+
+                    printf("inputC (Unoptimized merge sort result): ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputC[j]);
+                    }
+                    printf("\n");
+
+                    printf("inputD (Insertion sort result): ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputD[j]);
+                    }
+                    printf("\n");
+
+                    return -1; // Exit early since there's a failure
+                }
+            }
+
+            batch_insertion_time += (end.tv_sec - begin.tv_sec) + (end.tv_nsec - begin.tv_nsec) / 1e9;   
+
+        }
+        for (int trial = 0; trial < 10; trial++) {
+            count = (rand() % (15000 - 10000 + 1)) + 10000;;
+            fun_ptr = (count % 2 == 0) ? IntIncreasingOrder : IntDecreasingOrder;
+            if (trial % 2 == 0) make_almost_sorted(inputA, inputB, inputC, inputD, count);
+            else generate_random_array(inputA, inputB, inputC, inputD, count);
+            qsort(inputB, count, sizeof(int), fun_ptr);
+            // Time optimized merge sort
+            clock_gettime(CLOCK_MONOTONIC, &begin);
+            msort(inputA, count, sizeof(int), fun_ptr);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            batch_msort_time += (end.tv_sec - begin.tv_sec) + (end.tv_nsec - begin.tv_nsec) / 1e9;
+            // Time unoptimized merge sort
+            clock_gettime(CLOCK_MONOTONIC, &begin);
+            msort_UNOPT(inputC, count, sizeof(int), fun_ptr);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            batch_msort_unopt_time += (end.tv_sec - begin.tv_sec) + (end.tv_nsec - begin.tv_nsec) / 1e9;
+
+            // Time insertion sort
+            clock_gettime(CLOCK_MONOTONIC, &begin);
+            insertion_sortt(inputD, count, sizeof(int), fun_ptr);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+
+            for (size_t i = 0; i < count; i++) {
+                if (inputA[i] != inputB[i] || inputC[i] != inputB[i] || inputD[i] != inputB[i]) {
+                    printf("Test failed at index %zu\n", i);
+
+                    // Print the contents of the arrays
+                    printf("Array contents:\n");
+                    printf("inputA: ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputA[j]);
+                    }
+                    printf("\n");
+
+                    printf("inputB (reference, sorted using qsort): ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputB[j]);
+                    }
+                    printf("\n");
+
+                    printf("inputC (Unoptimized merge sort result): ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputC[j]);
+                    }
+                    printf("\n");
+
+                    printf("inputD (Insertion sort result): ");
+                    for (size_t j = 0; j < count; j++) {
+                        printf("%d ", inputD[j]);
+                    }
+                    printf("\n");
+
+                    return -1; // Exit early since there's a failure
+                }
+            }
+            batch_insertion_time += (end.tv_sec - begin.tv_sec) + (end.tv_nsec - begin.tv_nsec) / 1e9;   
+        }
+        // Determine which algorithm is faster for this batch
+        const char *faster_algorithm = (batch_msort_time < batch_msort_unopt_time && batch_msort_time < batch_insertion_time) ? 
+                                       "Optimized Merge Sort" : 
+                                       (batch_msort_unopt_time < batch_insertion_time ? "Unoptimized Merge Sort" : "Insertion Sort");
+
+        // Write batch results to the CSV file
+        fprintf(fp, "%d,%.9f,%.9f,%.9f,%s\n", batch, batch_msort_time, batch_msort_unopt_time, batch_insertion_time, faster_algorithm);
+        // Accumulate the total time across all batches
+        total_msort_time += batch_msort_time;
+        total_msort_unopt_time += batch_msort_unopt_time;
+        total_insertion_time += batch_insertion_time;
+    }
+
+    // Write overall results
+    printf("Overall Results: \n");
+    printf("Total Optimized Merge Sort Time: %.9f seconds\n", total_msort_time);
+    printf("Total Unoptimized Merge Sort Time: %.9f seconds\n", total_msort_unopt_time);
+    printf("Total Insertion Sort Time: %.9f seconds\n", total_insertion_time);
+
+    // Clean up
+    free(inputA); free(inputB); free(inputC); free(inputD); fclose(fp);
+
+    printf("Results written to batch_results.csv\n");
+
+    return 0;
+}

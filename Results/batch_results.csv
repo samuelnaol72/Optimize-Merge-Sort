@@ -1,0 +1,11 @@
+Batch Number,Optimized Merge Sort Time (s),Unoptimized Merge Sort Time (s),Insertion Sort Time (s),Faster Algorithm
+1,0.012301408,0.014599690,1.449477581,Optimized Merge Sort
+2,0.011645735,0.013895422,1.111613008,Optimized Merge Sort
+3,0.012397973,0.013893613,1.747229729,Optimized Merge Sort
+4,0.012884904,0.014262755,1.596444416,Optimized Merge Sort
+5,0.013792245,0.014718548,2.133793646,Optimized Merge Sort
+6,0.012243514,0.014381868,1.422069716,Optimized Merge Sort
+7,0.011196169,0.013579229,1.151571248,Optimized Merge Sort
+8,0.012399136,0.013354343,1.865605948,Optimized Merge Sort
+9,0.011459128,0.013487034,1.323242346,Optimized Merge Sort
+10,0.014508728,0.014985676,2.555867782,Optimized Merge Sort
